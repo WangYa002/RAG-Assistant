@@ -1,0 +1,38 @@
+[
+  {
+    "name": "builtin_smoke",
+    "description": "内置冒烟评估集：6 条中文问答，配合 data_seed/sample_docs 下的示例语料使用",
+    "items": [
+      {
+        "question": "FastAPI 是什么？",
+        "ground_truth": "FastAPI 是一个用于构建 API 的现代、高性能 Python Web 框架，基于标准 Python 类型提示。",
+        "expected_keywords": ["FastAPI", "Web 框架"]
+      },
+      {
+        "question": "什么是向量数据库？",
+        "ground_truth": "向量数据库专门用于存储和检索向量化嵌入，支持语义相似度搜索，代表产品有 ChromaDB。",
+        "expected_keywords": ["向量数据库", "ChromaDB"]
+      },
+      {
+        "question": "RAG 的核心思想是什么？",
+        "ground_truth": "RAG 检索增强生成把检索系统与大模型结合：先从知识库检索相关资料，再让大模型基于资料生成回答。",
+        "expected_keywords": ["检索", "生成"]
+      },
+      {
+        "question": "BM25 是什么算法？",
+        "ground_truth": "BM25 是一种基于词频与文档长度的经典信息检索排序算法。",
+        "expected_keywords": ["BM25", "检索"]
+      },
+      {
+        "question": "BGE 向量模型是什么？",
+        "ground_truth": "BGE 是智源开源的中文语义向量模型，可将文本映射为高维向量用于相似度检索。",
+        "expected_keywords": ["BGE", "向量"]
+      },
+      {
+        "question": "大模型微调常用的方法有哪些？",
+        "ground_truth": "常见方法包括全量微调、LoRA 等参数高效微调（PEFT），LoRA 通过低秩矩阵大幅降低显存开销。",
+        "expected_keywords": ["LoRA", "微调"]
+      }
+    ]
+  }
+]
