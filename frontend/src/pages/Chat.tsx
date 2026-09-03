@@ -241,8 +241,8 @@ function AnswerBlock({
                   <span className="digits text-[10px] text-ink-faint ml-auto shrink-0 pl-2">
                     相似度 {c.score.toFixed(3)}
                   </span>
-                  <span className="digits text-[10px] text-ink-soft shrink-0" aria-hidden>
-                    {openIdx === c.index ? "▲ 收起" : "▼ 展开"}
+                  <span className="digits text-[10px] text-ink-soft shrink-0 pl-2">
+                    {openIdx === c.index ? "收起" : "展开原文"}
                   </span>
                 </button>
                 {openIdx === c.index && (
