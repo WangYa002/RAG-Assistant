@@ -1,0 +1,200 @@
+@import "tailwindcss";
+
+@theme {
+  /* 剪报室 The Clipping Bureau — 设计令牌 */
+  --color-paper: #f6f2e9; /* 新闻纸米白 · 地 */
+  --color-paper-deep: #eee8d9; /* 桌面/分区 */
+  --color-paper-edge: #e4dcc9; /* 纸边 */
+  --color-ink: #211d17; /* 暖墨近黑 · 字 */
+  --color-ink-soft: #6b6353; /* 次级文字（自纸色取灰，≥4.5:1） */
+  --color-ink-faint: #8a7a5c; /* 注记/大号装饰用 */
+  --color-seal: #be3b2b; /* 印泥红 · 承诺色 */
+  --color-seal-deep: #96271b; /* 印泥红按压 */
+  --color-tea: #6e5f42; /* 茶褐 · 元信息 */
+  --color-line: #d8cfbb; /* 细栏线 */
+  --color-line-dark: #b9ad93;
+
+  --font-serif-sc: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --font-sans-sc: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --font-mono-digits: "IBM Plex Mono", ui-monospace, "Consolas", monospace;
+}
+
+html {
+  background: var(--color-paper);
+}
+
+body {
+  font-family: var(--font-sans-sc);
+  color: var(--color-ink);
+  background:
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(33, 29, 23, 0.025) 31px 32px),
+    var(--color-paper);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+/* —— 报刊版面语汇 —— */
+.masthead-title {
+  font-family: var(--font-serif-sc);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.section-head {
+  font-family: var(--font-serif-sc);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.digits {
+  font-family: var(--font-mono-digits);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* 裁切虚线：剪报室的分界语汇 */
+.cut-line {
+  border: 0;
+  border-top: 1.5px dashed var(--color-line-dark);
+}
+
+/* 印章：评估完成 / 模式标记 */
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2.5px solid var(--color-seal);
+  color: var(--color-seal);
+  font-family: var(--font-serif-sc);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  padding: 0.1em 0.55em;
+  border-radius: 4px;
+  transform: rotate(-4deg);
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.92 0.08'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='0.35' style='mix-blend-mode:multiply'/></svg>");
+  mask-size: 120px;
+}
+
+@keyframes stamp-in {
+  0% {
+    transform: rotate(-14deg) scale(1.7);
+    opacity: 0;
+  }
+  55% {
+    transform: rotate(-3deg) scale(0.96);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-4deg) scale(1);
+    opacity: 1;
+  }
+}
+.stamp-anim {
+  animation: stamp-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 档案夹标签（主导航） */
+.folder-tab {
+  position: relative;
+  border: 1px solid var(--color-line-dark);
+  border-radius: 6px 6px 0 0;
+  background: var(--color-paper-deep);
+  transition: background 0.15s ease-out, color 0.15s ease-out;
+}
+.folder-tab:hover {
+  background: var(--color-paper-edge);
+}
+.folder-tab[data-active="true"] {
+  background: var(--color-seal);
+  border-color: var(--color-seal-deep);
+  color: var(--color-paper);
+}
+
+/* 剪报小条（引用来源） */
+.clip-slip {
+  background: #fbf8f1;
+  border: 1px solid var(--color-line);
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(33, 29, 23, 0.12), 0 4px 14px rgba(33, 29, 23, 0.06);
+}
+
+/* 输入控件 */
+.field {
+  background: #fbf8f1;
+  border: 1px solid var(--color-line-dark);
+  border-radius: 3px;
+  outline: none;
+  transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+.field:focus-visible {
+  border-color: var(--color-seal);
+  box-shadow: 0 0 0 2px rgba(190, 59, 43, 0.25);
+}
+
+.btn-primary {
+  background: var(--color-seal);
+  color: var(--color-paper);
+  border-radius: 3px;
+  transition: background 0.15s ease-out, transform 0.1s ease-out;
+}
+.btn-primary:hover {
+  background: var(--color-seal-deep);
+}
+.btn-primary:active {
+  transform: translateY(1px);
+}
+.btn-ghost {
+  border: 1px solid var(--color-line-dark);
+  border-radius: 3px;
+  background: transparent;
+  transition: background 0.15s ease-out;
+}
+.btn-ghost:hover {
+  background: var(--color-paper-deep);
+}
+.btn-ghost:disabled,
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* —— 浏览器表面一并入世界 —— */
+::selection {
+  background: var(--color-seal);
+  color: var(--color-paper);
+}
+
+* {
+  caret-color: var(--color-seal);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-paper-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line-dark);
+  border-radius: 5px;
+  border: 2px solid var(--color-paper-deep);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-tea);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-seal);
+  outline-offset: 2px;
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-anim {
+    animation: none;
+  }
+}
