@@ -2,9 +2,9 @@
 node_modules/
 __pycache__/
 *.pyc
-data/app.db
-data/chroma/
-data/uploads/
+**/data/app.db
+**/data/chroma/
+**/data/uploads/
 dist/
 .env
 .pytest_cache/
