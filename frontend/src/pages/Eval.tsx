@@ -80,7 +80,7 @@ export default function Eval() {
       </div>
 
       {/* 工位进度 */}
-      <ol className="mt-5 flex items-center gap-0 text-sm" aria-label="评定工位">
+      <ol className="mt-5 flex flex-wrap items-center gap-y-1 text-sm" aria-label="评定工位">
         {STATIONS.map((s, i) => (
           <li key={s} className="flex items-center">
             {i > 0 && (

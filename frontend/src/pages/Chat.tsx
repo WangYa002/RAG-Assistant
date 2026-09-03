@@ -67,11 +67,11 @@ export default function Chat() {
           next[next.length - 1] = { ...last, content: last.content + text };
           return next;
         }),
-      onDone: ({ conversation_id }) => {
+      onDone: ({ message_id, conversation_id }) => {
         setTurns((t) => {
           const next = [...t];
           const last = next[next.length - 1];
-          next[next.length - 1] = { ...last, streaming: false };
+          next[next.length - 1] = { ...last, streaming: false, id: message_id };
           return next;
         });
         if (conversation_id !== convId) setConvId(conversation_id);

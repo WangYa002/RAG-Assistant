@@ -106,7 +106,7 @@ export default function Knowledge() {
       )}
 
       {/* 工位说明（暗房借鉴：固定工位语法） */}
-      <ol className="mt-6 flex items-center gap-0 text-sm" aria-label="入库工位">
+      <ol className="mt-6 flex flex-wrap items-center gap-y-1 text-sm" aria-label="入库工位">
         {STATIONS.map((s, i) => (
           <li key={s} className="flex items-center">
             {i > 0 && (
