@@ -185,11 +185,11 @@ export default function Chat() {
             </p>
           )}
 
-          {/* 输入区 */}
+          {/* 输入区：无边框，仅文本与发送钮 */}
           <div className="pb-5">
-            <div className="card flex items-end gap-2 p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="flex items-end gap-2.5 px-1">
               <textarea
-                className="max-h-40 min-h-[40px] flex-1 resize-none bg-transparent px-2.5 py-2 text-[15px] leading-relaxed outline-none placeholder:text-faint"
+                className="max-h-40 min-h-[40px] flex-1 resize-none bg-transparent px-0 py-2.5 text-[15px] leading-relaxed outline-none placeholder:text-faint"
                 rows={1}
                 placeholder="输入问题，Enter 发送，Shift+Enter 换行"
                 value={input}
@@ -211,7 +211,7 @@ export default function Chat() {
                 <IconSend size={16} />
               </button>
             </div>
-            <p className="mt-2 text-center text-[11px] text-faint">
+            <p className="mt-1.5 text-center text-[11px] text-faint">
               内容由 AI 生成，请以引用原文为准
             </p>
           </div>

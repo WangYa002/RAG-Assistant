@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api/client";
@@ -16,6 +17,10 @@ import Chat from "./pages/Chat";
 import Eval from "./pages/Eval";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
+
+const SIDEBAR_MIN = 184;
+const SIDEBAR_MAX = 340;
+const SIDEBAR_DEFAULT = 240;
 
 const NAV = [
   { to: "/knowledge", label: "知识库", sub: "文档入库与索引", icon: IconDatabase },
@@ -72,9 +77,56 @@ function Brand() {
 export default function App() {
   return (
     <ThemeProvider>
-      <div className="flex h-full">
-        {/* 侧栏（桌面） */}
-        <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface md:flex">
+      <Shell />
+    </ThemeProvider>
+  );
+}
+
+function Shell() {
+  const [sidebarW, setSidebarW] = useState(
+    () => clamp(Number(localStorage.getItem("kb-sidebar-w")) || SIDEBAR_DEFAULT)
+  );
+  const drag = useRef<{ startX: number; startW: number } | null>(null);
+
+  const onMove = useCallback((e: MouseEvent) => {
+    if (!drag.current) return;
+    setSidebarW(clamp(drag.current.startW + e.clientX - drag.current.startX));
+  }, []);
+  const onUp = useCallback(() => {
+    if (!drag.current) return;
+    drag.current = null;
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+    localStorage.setItem("kb-sidebar-w", String(clamp(sidebarWRef.current)));
+  }, []);
+
+  // 用 ref 让 onUp 读到最新宽度
+  const sidebarWRef = useRef(sidebarW);
+  sidebarWRef.current = sidebarW;
+
+  useEffect(() => {
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [onMove, onUp]);
+
+  const startDrag = (e: React.MouseEvent) => {
+    e.preventDefault();
+    drag.current = { startX: e.clientX, startW: sidebarW };
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+  };
+
+  return (
+    <div className="flex h-full">
+        {/* 侧栏（桌面，右缘可拖拽调宽，双击复位） */}
+        <aside
+          className="relative hidden shrink-0 flex-col border-r border-line bg-surface md:flex"
+          style={{ width: sidebarW }}
+        >
           <div className="px-4 pb-4 pt-5">
             <Brand />
           </div>
@@ -101,6 +153,19 @@ export default function App() {
               <ThemeToggle />
             </div>
           </div>
+          <div
+            role="separator"
+            aria-label="拖拽调整侧栏宽度"
+            aria-orientation="vertical"
+            title="拖拽调整宽度，双击复位"
+            onMouseDown={startDrag}
+            onDoubleClick={() => {
+              setSidebarW(SIDEBAR_DEFAULT);
+              localStorage.setItem("kb-sidebar-w", String(SIDEBAR_DEFAULT));
+            }}
+            className="absolute right-0 top-0 z-10 h-full w-1.5 -mr-0.5 cursor-col-resize transition-colors hover:bg-line2"
+            style={{ touchAction: "none" }}
+          />
         </aside>
 
         {/* 主区 */}
@@ -146,6 +211,9 @@ export default function App() {
           </main>
         </div>
       </div>
-    </ThemeProvider>
   );
+}
+
+function clamp(w: number): number {
+  return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w)));
 }
