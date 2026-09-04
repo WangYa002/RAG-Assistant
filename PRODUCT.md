@@ -37,7 +37,7 @@ delegated: React 18 + Vite + TypeScript + Tailwind CSS + TanStack Query + EChart
 
 ## Brand Commitments
 
-产品名「智汇知识库」（Zhihui Knowledge Base）。无既定视觉资产，无锁定色彩/字体承诺。
+产品名「智汇知识库」（Zhihui Knowledge Base）。视觉方向由用户钉定：**仿 Codex 的现代极简风格**（双主题、单色墨阶、圆角卡片、等宽数字），2026-09-04 起取代最初的「剪报室」报纸拟物方向。
 
 ## Evidence on Hand
 

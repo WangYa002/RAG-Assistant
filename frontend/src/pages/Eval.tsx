@@ -1,14 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, EvalRunResult } from "../api/client";
+import { IconCheck, IconRefresh, IconX } from "../components/icons";
 
 const STATIONS = ["取样", "检索", "生成", "评定"];
+
+function CountUp({ value, format }: { value: number; format: (v: number) => string }) {
+  const [display, setDisplay] = useState(0);
+  const raf = useRef<number>(0);
+  useEffect(() => {
+    const t0 = performance.now();
+    const dur = 700;
+    const tick = (t: number) => {
+      const p = Math.min((t - t0) / dur, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplay(value * eased);
+      if (p < 1) raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf.current);
+  }, [value]);
+  return <>{format(display)}</>;
+}
 
 export default function Eval() {
   const qc = useQueryClient();
   const datasets = useQuery({ queryKey: ["eval-datasets"], queryFn: api.evalDatasets });
   const history = useQuery({ queryKey: ["eval-runs"], queryFn: api.evalRuns });
-  const [selected, setSelected] = useState<string>("");
+  const [selected, setSelected] = useState("");
   const [running, setRunning] = useState(false);
   const [station, setStation] = useState(-1);
   const [result, setResult] = useState<EvalRunResult | null>(null);
@@ -23,13 +42,12 @@ export default function Eval() {
     setRunning(true);
     setError(null);
     setResult(null);
-    // 工位推进动画：取样→检索→生成→评定（暗房工位语法）
     let step = 0;
     setStation(0);
     const timer = setInterval(() => {
       step = Math.min(step + 1, STATIONS.length - 1);
       setStation(step);
-    }, 700);
+    }, 600);
     try {
       const res = await api.runEval(selected);
       setResult(res);
@@ -46,177 +64,185 @@ export default function Eval() {
   const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 
   return (
-    <section aria-labelledby="eval-title">
-      <div className="flex items-baseline gap-4 flex-wrap">
-        <h2 id="eval-title" className="section-head text-2xl">
-          质检台
-        </h2>
-        <span className="digits text-xs text-tea">EVALUATION DESK · 检索与回答质量评定</span>
-      </div>
-      <p className="text-ink-soft mt-1 max-w-prose">
-        选一套评估集，质检台将对每道题执行完整的检索与回答流水线，
-        再按来源命中、忠实度、相关性逐项打分。
-      </p>
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-4xl px-6 py-8 md:px-10">
+        <header>
+          <h1 className="text-xl font-semibold tracking-tight">效果评估</h1>
+          <p className="mt-1 text-sm text-soft">
+            对评估集逐题执行检索与生成流水线，按来源命中、忠实度、相关性打分
+          </p>
+        </header>
 
-      <div className="mt-5 flex items-end gap-3 flex-wrap">
-        <label className="text-sm">
-          <span className="block text-xs text-tea mb-1">评估集</span>
-          <select
-            className="field px-3 py-2 text-sm min-w-64"
-            value={selected}
-            onChange={(e) => setSelected(e.target.value)}
-            disabled={running}
-          >
-            {datasets.data?.map((d) => (
-              <option key={d.name} value={d.name}>
-                {d.name} · {d.items.length} 题
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className="btn-primary px-5 py-2 text-sm" onClick={run} disabled={running || !selected}>
-          {running ? "评定中……" : "开始评定"}
-        </button>
-      </div>
-
-      {/* 工位进度 */}
-      <ol className="mt-5 flex flex-wrap items-center gap-y-1 text-sm" aria-label="评定工位">
-        {STATIONS.map((s, i) => (
-          <li key={s} className="flex items-center">
-            {i > 0 && (
-              <span className="digits mx-3 select-none" style={{ color: "var(--color-line-dark)" }} aria-hidden>
-                ──────▶
-              </span>
-            )}
-            <span
-              className={`flex items-baseline gap-1.5 ${
-                running && i === station ? "text-seal" : i < station ? "" : "text-ink-soft"
-              }`}
+        <div className="mt-6 flex flex-wrap items-end gap-3">
+          <label className="text-sm">
+            <span className="mb-1.5 block text-xs font-medium text-soft">评估集</span>
+            <select
+              className="field h-9 min-w-60 px-3 text-sm"
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+              disabled={running}
             >
-              <span className="digits text-[10px] text-tea">{`0${i + 1}`}</span>
-              <span className="section-head">{s}</span>
-              {running && i === station && (
-                <span className="digits text-xs animate-pulse" aria-hidden>
-                  ▍
-                </span>
-              )}
+              {datasets.data?.map((d) => (
+                <option key={d.name} value={d.name}>
+                  {d.name} · {d.items.length} 题
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="btn btn-primary" onClick={run} disabled={running || !selected}>
+            <IconRefresh size={14} className={running ? "animate-spin" : undefined} />
+            {running ? "评估中…" : "开始评估"}
+          </button>
+          {result && (
+            <span className="chip ml-auto" style={{ color: "var(--kb-ok)", borderColor: "var(--kb-ok)" }}>
+              <IconCheck size={12} />
+              评估完成
             </span>
-          </li>
-        ))}
-      </ol>
+          )}
+        </div>
 
-      {error && (
-        <p className="mt-4 text-sm text-seal" role="alert">
-          评定失败：{error}
-        </p>
-      )}
-
-      {result && (
-        <>
-          {/* 仪表读数 + 盖章 */}
-          <div className="mt-6 relative">
-            <div className="flex justify-end absolute -top-1 right-0">
-              <span className="stamp stamp-anim text-sm" aria-hidden>
-                已评定
+        {/* 流程指示 */}
+        <div className="mt-6 flex flex-wrap items-center gap-2" aria-label="评估流程">
+          {STATIONS.map((s, i) => (
+            <span key={s} className="flex items-center gap-2">
+              {i > 0 && <span className="h-px w-7 bg-line2" aria-hidden />}
+              <span
+                className="chip"
+                style={
+                  running && i === station
+                    ? { borderColor: "var(--kb-ink)", color: "var(--kb-ink)" }
+                    : i < station
+                      ? { color: "var(--kb-ok)" }
+                      : { color: "var(--kb-faint)" }
+                }
+              >
+                <span className="mono text-[10px]">{`0${i + 1}`}</span>
+                {s}
+                {running && i === station && <span className="dot" />}
               </span>
+            </span>
+          ))}
+        </div>
+
+        {error && (
+          <p
+            className="rise mt-4 rounded-lg px-3 py-2 text-sm"
+            style={{ background: "color-mix(in srgb, var(--kb-danger) 8%, transparent)", color: "var(--kb-danger)" }}
+            role="alert"
+          >
+            评估失败：{error}
+          </p>
+        )}
+
+        {result && (
+          <>
+            {/* 指标读数 */}
+            <h2 className="mt-8 text-sm font-semibold">本次指标</h2>
+            <div className="card mt-3 grid grid-cols-2 divide-line md:grid-cols-4 md:divide-x">
+              <Metric label="命中率 Hit-Rate" value={result.metrics.hit_rate} format={pct} />
+              <Metric label="MRR" value={result.metrics.mrr} format={(v) => v.toFixed(3)} />
+              <Metric label="平均忠实度" value={result.metrics.avg_faithfulness} format={pct} />
+              <Metric label="平均相关性" value={result.metrics.avg_answer_relevance} format={pct} />
             </div>
-            <h3 className="section-head text-lg">本次读数</h3>
-            <hr className="cut-line mt-2" />
-            <dl className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-4 mt-4">
-              <Metric label="来源命中率 HIT-RATE" value={pct(result.metrics.hit_rate)} />
-              <Metric label="首命中位次 MRR" value={result.metrics.mrr.toFixed(3)} />
-              <Metric label="平均忠实度" value={pct(result.metrics.avg_faithfulness)} />
-              <Metric label="平均相关性" value={pct(result.metrics.avg_answer_relevance)} />
-            </dl>
-          </div>
 
-          {/* 逐题明细 */}
-          <h3 className="section-head text-lg mt-8">逐题明细</h3>
-          <hr className="cut-line mt-2" />
-          <table className="w-full mt-2 text-sm">
-            <thead>
-              <tr className="text-left text-xs text-tea border-b border-line-dark">
-                <th className="py-2 pr-3 font-medium digits">题号</th>
-                <th className="py-2 pr-3 font-medium">问题</th>
-                <th className="py-2 pr-3 font-medium">来源命中</th>
-                <th className="py-2 pr-3 font-medium text-right">首命中位次</th>
-                <th className="py-2 pr-3 font-medium text-right">忠实度</th>
-                <th className="py-2 font-medium text-right">相关性</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.per_item.map((item, i) => (
-                <tr key={i} className="border-b border-line align-top">
-                  <td className="py-2 pr-3 digits text-xs text-tea">{`Q${String(i + 1).padStart(2, "0")}`}</td>
-                  <td className="py-2 pr-3 max-w-[26rem]">
-                    <span className="block">{item.question}</span>
-                    <span className="block text-xs text-ink-soft mt-0.5 line-clamp-2">
-                      {item.answer}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-3">
-                    {item.hit ? (
-                      <span className="text-seal section-head" title="命中">
-                        ✓
-                      </span>
-                    ) : (
-                      <span className="text-ink-soft" title="未命中">
-                        ✗
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2 pr-3 text-right digits">
-                    {item.first_hit_rank || "—"}
-                  </td>
-                  <td className="py-2 pr-3 text-right digits">{pct(item.faithfulness)}</td>
-                  <td className="py-2 text-right digits">{pct(item.answer_relevance)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
+            {/* 逐题明细 */}
+            <h2 className="mt-8 text-sm font-semibold">逐题明细</h2>
+            <div className="card mt-3 overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead>
+                  <tr className="bg-surface text-left text-xs text-soft">
+                    <th className="px-4 py-2.5 font-medium">#</th>
+                    <th className="px-4 py-2.5 font-medium">问题 / 回答</th>
+                    <th className="px-4 py-2.5 font-medium">命中</th>
+                    <th className="px-4 py-2.5 text-right font-medium">位次</th>
+                    <th className="px-4 py-2.5 text-right font-medium">忠实度</th>
+                    <th className="px-4 py-2.5 text-right font-medium">相关性</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.per_item.map((item, i) => (
+                    <tr key={i} className="border-t border-line align-top transition-colors hover:bg-surface">
+                      <td className="mono px-4 py-2.5 text-xs text-faint">
+                        {String(i + 1).padStart(2, "0")}
+                      </td>
+                      <td className="max-w-[24rem] px-4 py-2.5">
+                        <span className="block font-medium">{item.question}</span>
+                        <span className="mt-0.5 line-clamp-2 block text-xs leading-relaxed text-soft">
+                          {item.answer}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {item.hit ? (
+                          <IconCheck size={15} style={{ color: "var(--kb-ok)" }} />
+                        ) : (
+                          <IconX size={15} className="text-faint" />
+                        )}
+                      </td>
+                      <td className="mono px-4 py-2.5 text-right">{item.first_hit_rank || "—"}</td>
+                      <td className="mono px-4 py-2.5 text-right">{pct(item.faithfulness)}</td>
+                      <td className="mono px-4 py-2.5 text-right">{pct(item.answer_relevance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
 
-      {/* 历史评定 */}
-      {history.data?.length ? (
-        <>
-          <h3 className="section-head text-lg mt-8">评定档案</h3>
-          <hr className="cut-line mt-2" />
-          <table className="w-full mt-2 text-sm">
-            <thead>
-              <tr className="text-left text-xs text-tea border-b border-line-dark">
-                <th className="py-2 pr-3 font-medium digits">编号</th>
-                <th className="py-2 pr-3 font-medium">评估集</th>
-                <th className="py-2 pr-3 font-medium text-right">命中率</th>
-                <th className="py-2 pr-3 font-medium text-right">MRR</th>
-                <th className="py-2 font-medium text-right">时间</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.data.map((r) => (
-                <tr key={r.id} className="border-b border-line">
-                  <td className="py-2 pr-3 digits text-xs text-tea">{`E-${String(r.id).padStart(4, "0")}`}</td>
-                  <td className="py-2 pr-3">{r.dataset}</td>
-                  <td className="py-2 pr-3 text-right digits">{pct(r.metrics.hit_rate)}</td>
-                  <td className="py-2 pr-3 text-right digits">{r.metrics.mrr.toFixed(3)}</td>
-                  <td className="py-2 text-right digits text-xs text-ink-soft">
-                    {new Date(r.created_at).toLocaleString("zh-CN", { hour12: false })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      ) : null}
-    </section>
+        {/* 历史记录 */}
+        {history.data?.length ? (
+          <>
+            <h2 className="mt-8 text-sm font-semibold">历史记录</h2>
+            <div className="card mt-3 overflow-x-auto">
+              <table className="w-full min-w-[480px] text-sm">
+                <thead>
+                  <tr className="bg-surface text-left text-xs text-soft">
+                    <th className="px-4 py-2.5 font-medium">编号</th>
+                    <th className="px-4 py-2.5 font-medium">评估集</th>
+                    <th className="px-4 py-2.5 text-right font-medium">命中率</th>
+                    <th className="px-4 py-2.5 text-right font-medium">MRR</th>
+                    <th className="px-4 py-2.5 text-right font-medium">时间</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.data.map((r) => (
+                    <tr key={r.id} className="border-t border-line transition-colors hover:bg-surface">
+                      <td className="mono px-4 py-2.5 text-xs text-faint">
+                        E-{String(r.id).padStart(4, "0")}
+                      </td>
+                      <td className="px-4 py-2.5">{r.dataset}</td>
+                      <td className="mono px-4 py-2.5 text-right">{pct(r.metrics.hit_rate)}</td>
+                      <td className="mono px-4 py-2.5 text-right">{r.metrics.mrr.toFixed(3)}</td>
+                      <td className="mono px-4 py-2.5 text-right text-xs text-faint">
+                        {new Date(r.created_at).toLocaleString("zh-CN", { hour12: false })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  format,
+}: {
+  label: string;
+  value: number;
+  format: (v: number) => string;
+}) {
   return (
-    <div className="border-b border-line pb-2">
-      <dt className="digits text-[10px] tracking-[0.2em] text-tea">{label}</dt>
-      <dd className="digits text-3xl mt-1">{value}</dd>
+    <div className="px-5 py-4">
+      <p className="text-xs text-soft">{label}</p>
+      <p className="mono mt-1 text-[28px] font-semibold leading-tight">
+        <CountUp value={value} format={format} />
+      </p>
     </div>
   );
 }

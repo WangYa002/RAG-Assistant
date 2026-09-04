@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, Citation, streamChat } from "../api/client";
+import { IconChat, IconCheck, IconChevron, IconPlus, IconSend, IconX } from "../components/icons";
 
 interface Turn {
   role: "user" | "assistant";
@@ -51,7 +52,11 @@ export default function Chat() {
     setInput("");
     setError(null);
     setBusy(true);
-    setTurns((t) => [...t, { role: "user", content: question, citations: [] }, { role: "assistant", content: "", citations: [], streaming: true }]);
+    setTurns((t) => [
+      ...t,
+      { role: "user", content: question, citations: [] },
+      { role: "assistant", content: "", citations: [], streaming: true },
+    ]);
 
     await streamChat(question, convId, {
       onCitations: (hits) =>
@@ -84,8 +89,7 @@ export default function Chat() {
         setError(message);
         setTurns((t) => {
           const next = [...t];
-          const last = next[next.length - 1];
-          if (!last.content) next.pop(); // 空回答则移除占位
+          if (!next[next.length - 1]?.content) next.pop();
           return next;
         });
         setBusy(false);
@@ -97,108 +101,123 @@ export default function Chat() {
     if (!turn.id) return;
     await api.rate(turn.id, rating);
     setTurns((t) => t.map((x) => (x.id === turn.id ? { ...x, rating } : x)));
+    qc.invalidateQueries({ queryKey: ["overview"] });
   };
 
   return (
-    <section aria-labelledby="chat-title" className="flex gap-6 h-[calc(100vh-13rem)] min-h-[28rem]">
-      {/* 会话档案 */}
-      <aside className="w-52 shrink-0 flex flex-col" aria-label="问询档案">
+    <div className="flex h-full min-w-0">
+      {/* 会话列表 */}
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-line bg-surface px-3 py-4 lg:flex">
         <button
-          className="btn-primary text-sm px-3 py-2 mb-3"
+          className="btn btn-primary w-full"
           onClick={() => {
             setConvId(null);
             setTurns([]);
             setError(null);
           }}
         >
-          ＋ 新问询单
+          <IconPlus size={14} />
+          新对话
         </button>
-        <div className="flex-1 overflow-y-auto pr-1">
+        <div className="mt-3 flex-1 space-y-0.5 overflow-y-auto pr-0.5">
           {conversations.data?.length ? (
             conversations.data.map((c) => (
               <button
                 key={c.id}
                 onClick={() => loadConversation(c.id)}
-                className={`block w-full text-left text-sm px-2 py-1.5 rounded-sm mb-0.5 border-b border-line hover:bg-paper-deep ${
-                  c.id === convId ? "bg-paper-deep" : ""
+                className={`w-full truncate rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors hover:bg-surface2 ${
+                  c.id === convId ? "bg-surface2 font-medium" : "text-soft"
                 }`}
+                title={c.title}
               >
-                <span className="digits text-[10px] text-tea block">
-                  {`Q-${String(c.id).padStart(4, "0")}`}
-                </span>
-                <span className="block truncate">{c.title}</span>
+                {c.title}
               </button>
             ))
           ) : (
-            <p className="text-xs text-ink-soft px-2">尚无问询记录。</p>
+            <p className="px-2.5 py-2 text-xs text-faint">暂无历史会话</p>
           )}
         </div>
       </aside>
 
-      {/* 阅读桌 */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <div className="flex items-baseline gap-4">
-          <h2 id="chat-title" className="section-head text-2xl">
-            阅读桌
-          </h2>
-          <span className="digits text-xs text-tea">READING DESK · 提问与溯源</span>
-        </div>
-        <hr className="cut-line mt-2" />
+      {/* 对话主区 */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 md:px-8">
+          <div className="min-h-0 flex-1 overflow-y-auto py-6" aria-live="polite">
+            {turns.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center text-center">
+                <span
+                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface2 text-soft"
+                  aria-hidden
+                >
+                  <IconChat size={20} />
+                </span>
+                <h1 className="mt-4 text-lg font-semibold tracking-tight">向知识库提问</h1>
+                <p className="mt-2 max-w-md text-sm leading-relaxed text-soft">
+                  回答基于已入库文档生成，每个结论附带 <span className="mono text-ink">[n]</span>{" "}
+                  引用编号，点击引用可核对原文与相似度
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {turns.map((turn, i) =>
+                  turn.role === "user" ? (
+                    <div key={i} className="flex justify-end">
+                      <p className="max-w-[85%] rounded-2xl rounded-br-md bg-surface px-4 py-2.5 text-[15px] leading-relaxed">
+                        {turn.content}
+                      </p>
+                    </div>
+                  ) : (
+                    <AnswerBlock key={i} turn={turn} onRate={rate} />
+                  )
+                )}
+                <div ref={bottomRef} />
+              </div>
+            )}
+          </div>
 
-        <div className="flex-1 overflow-y-auto py-4 pr-1" aria-live="polite">
-          {turns.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center">
-              <p className="section-head text-xl text-ink-soft">向资料室递一张问询单</p>
-              <p className="text-sm text-ink-soft mt-2 max-w-prose">
-                回答完全基于已归档文献生成，每条结论都附
-                <span className="text-seal"> [n] </span>
-                来源编号，可在回答下方的剪报条里核对原文。
-              </p>
-            </div>
-          ) : (
-            turns.map((turn, i) =>
-              turn.role === "user" ? (
-                <div key={i} className="flex justify-end my-3">
-                  <p className="clip-slip px-4 py-2 max-w-[80%] text-[15px]">
-                    <span className="digits text-[10px] text-tea block mb-0.5">问询单</span>
-                    {turn.content}
-                  </p>
-                </div>
-              ) : (
-                <AnswerBlock key={i} turn={turn} onRate={rate} />
-              )
-            )
+          {error && (
+            <p
+              className="rise mb-3 rounded-lg px-3 py-2 text-sm"
+              style={{ background: "color-mix(in srgb, var(--kb-danger) 8%, transparent)", color: "var(--kb-danger)" }}
+              role="alert"
+            >
+              出错了：{error}　可重试，或到「设置」检查模型接入
+            </p>
           )}
-          <div ref={bottomRef} />
-        </div>
 
-        {error && (
-          <p className="text-sm text-seal mb-2" role="alert">
-            出错了：{error}（可重试，或到「设置」检查模型接入）
-          </p>
-        )}
-
-        <div className="flex gap-2 items-end">
-          <textarea
-            className="field flex-1 px-3 py-2 text-[15px] resize-none"
-            rows={2}
-            placeholder="把问题写进问询单，Enter 发出，Shift+Enter 换行"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                ask();
-              }
-            }}
-            disabled={busy}
-          />
-          <button className="btn-primary px-5 py-2.5 text-sm" onClick={ask} disabled={busy || !input.trim()}>
-            {busy ? "检索中……" : "递单提问"}
-          </button>
+          {/* 输入区 */}
+          <div className="pb-5">
+            <div className="card flex items-end gap-2 p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              <textarea
+                className="max-h-40 min-h-[40px] flex-1 resize-none bg-transparent px-2.5 py-2 text-[15px] leading-relaxed outline-none placeholder:text-faint"
+                rows={1}
+                placeholder="输入问题，Enter 发送，Shift+Enter 换行"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    ask();
+                  }
+                }}
+                disabled={busy}
+              />
+              <button
+                className="btn btn-primary !h-9 !w-9 !px-0 shrink-0"
+                onClick={ask}
+                disabled={busy || !input.trim()}
+                aria-label="发送"
+              >
+                <IconSend size={16} />
+              </button>
+            </div>
+            <p className="mt-2 text-center text-[11px] text-faint">
+              内容由 AI 生成，请以引用原文为准
+            </p>
+          </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -211,69 +230,72 @@ function AnswerBlock({
 }) {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   return (
-    <article className="my-4">
-      <div className="text-[15px] leading-[1.85] whitespace-pre-wrap max-w-prose">
+    <article className="rise">
+      <div className="whitespace-pre-wrap text-[15px] leading-[1.8]">
         {turn.content}
-        {turn.streaming && (
-          <span className="text-seal digits animate-pulse" aria-label="正在生成">
-            ▍
-          </span>
-        )}
+        {turn.streaming && <span className="caret" aria-label="正在生成" />}
       </div>
 
       {turn.citations.length > 0 && (
-        <div className="mt-3 max-w-prose">
-          <p className="digits text-[10px] tracking-[0.25em] text-tea mb-1.5">
-            SOURCES · 来源剪报 {turn.citations.length} 条
+        <div className="mt-3 space-y-1.5">
+          <p className="mono text-[10px] font-medium tracking-[0.16em] text-faint">
+            SOURCES · {turn.citations.length}
           </p>
-          <div className="flex flex-col gap-1.5">
-            {turn.citations.map((c) => (
-              <div key={c.index} className="clip-slip">
-                <button
-                  className="w-full text-left px-3 py-1.5 flex items-baseline gap-2 text-sm"
-                  onClick={() => setOpenIdx(openIdx === c.index ? null : c.index)}
-                  aria-expanded={openIdx === c.index}
+          {turn.citations.map((c) => (
+            <div key={c.index} className="card overflow-hidden">
+              <button
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-surface"
+                onClick={() => setOpenIdx(openIdx === c.index ? null : c.index)}
+                aria-expanded={openIdx === c.index}
+              >
+                <span className="mono flex h-6 w-7 items-center justify-center rounded-md bg-surface2 text-[11px] font-medium">
+                  [{c.index}]
+                </span>
+                <span className="min-w-0 flex-1 truncate">
+                  {c.filename}
+                  <span className="text-soft"> · 片段 {c.idx + 1}</span>
+                </span>
+                <span className="mono text-[11px] text-faint">{c.score.toFixed(3)}</span>
+                <span
+                  className="text-faint transition-transform duration-200"
+                  style={{ transform: openIdx === c.index ? "rotate(180deg)" : "none" }}
+                  aria-hidden
                 >
-                  <span className="digits text-xs text-seal shrink-0">[{c.index}]</span>
-                  <span className="truncate">
-                    《{c.filename}》第 {c.idx + 1} 条
-                  </span>
-                  <span className="digits text-[10px] text-ink-faint ml-auto shrink-0 pl-2">
-                    相似度 {c.score.toFixed(3)}
-                  </span>
-                  <span className="digits text-[10px] text-ink-soft shrink-0 pl-2">
-                    {openIdx === c.index ? "收起" : "展开原文"}
-                  </span>
-                </button>
-                {openIdx === c.index && (
-                  <p className="px-3 pb-2.5 pt-1 text-sm text-ink-soft border-t border-dashed border-line-dark leading-relaxed">
-                    {c.text}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+                  <IconChevron size={14} />
+                </span>
+              </button>
+              {openIdx === c.index && (
+                <p className="border-t border-line px-3.5 py-2.5 text-sm leading-relaxed text-soft">
+                  {c.text}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
       {!turn.streaming && turn.id && (
-        <div className="mt-2 flex items-center gap-2 text-xs">
-          <span className="digits text-[10px] text-ink-faint tracking-[0.2em]">批阅：</span>
+        <div className="mt-2.5 flex items-center gap-1.5">
           <button
-            className={`btn-ghost px-2 py-0.5 ${turn.rating === "up" ? "text-seal border-seal" : ""}`}
+            className={`btn btn-ghost !h-7 !px-2 ${turn.rating === "up" ? "!text-ok" : "text-soft"}`}
+            style={turn.rating === "up" ? { borderColor: "var(--kb-ok)" } : undefined}
             onClick={() => onRate(turn, "up")}
+            aria-label="有帮助"
+            title="有帮助"
           >
-            有据 ✓
+            <IconCheck size={14} />
           </button>
           <button
-            className={`btn-ghost px-2 py-0.5 ${turn.rating === "down" ? "text-seal border-seal" : ""}`}
+            className={`btn btn-ghost !h-7 !px-2 ${turn.rating === "down" ? "!text-danger" : "text-soft"}`}
+            style={turn.rating === "down" ? { borderColor: "var(--kb-danger)" } : undefined}
             onClick={() => onRate(turn, "down")}
+            aria-label="需改进"
+            title="需改进"
           >
-            存疑 ✗
+            <IconX size={14} />
           </button>
         </div>
       )}
-      <hr className="cut-line mt-4" />
     </article>
   );
 }

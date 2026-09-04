@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, DocumentItem } from "../api/client";
+import { IconCheck, IconRefresh, IconTrash, IconUpload } from "../components/icons";
 
 const STATIONS = ["收文", "剪裁", "归档"];
 
@@ -8,7 +9,7 @@ export default function Knowledge() {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
   const docs = useQuery({ queryKey: ["documents"], queryFn: api.listDocuments });
 
@@ -20,21 +21,18 @@ export default function Knowledge() {
   const upload = useMutation({
     mutationFn: api.uploadDocument,
     onSuccess: (doc) => {
-      setNotice(`《${doc.filename}》已归档，剪成 ${doc.chunk_count} 条知识。`);
+      setNotice({ ok: true, text: `《${doc.filename}》已入库，切分为 ${doc.chunk_count} 个片段` });
       invalidate();
     },
-    onError: (e: Error) => setNotice(`收文失败：${e.message}`),
+    onError: (e: Error) => setNotice({ ok: false, text: `上传失败：${e.message}` }),
   });
 
-  const remove = useMutation({
-    mutationFn: api.deleteDocument,
-    onSuccess: invalidate,
-  });
+  const remove = useMutation({ mutationFn: api.deleteDocument, onSuccess: invalidate });
 
   const rebuild = useMutation({
     mutationFn: api.rebuildIndex,
-    onSuccess: (r) => setNotice(`索引已重建，共 ${r.chunks} 条剪报。`),
-    onError: (e: Error) => setNotice(`重建失败：${e.message}`),
+    onSuccess: (r) => setNotice({ ok: true, text: `索引已重建，共 ${r.chunks} 个片段` }),
+    onError: (e: Error) => setNotice({ ok: false, text: `重建失败：${e.message}` }),
   });
 
   const handleFiles = (files: FileList | null) => {
@@ -44,162 +42,169 @@ export default function Knowledge() {
   };
 
   return (
-    <section aria-labelledby="kb-title">
-      <div className="flex items-baseline gap-4 flex-wrap">
-        <h2 id="kb-title" className="section-head text-2xl">
-          收文台
-        </h2>
-        <span className="digits text-xs text-tea">FILING DESK · 文献入库</span>
-      </div>
-      <p className="text-ink-soft mt-1 max-w-prose">
-        上传 PDF / DOCX / MD / TXT 文献，资料室将自动剪裁、编号、归档入检索索引。
-      </p>
-
-      {/* 收文口：剪裁虚线 */}
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label="上传文献"
-        onClick={() => fileRef.current?.click()}
-        onKeyDown={(e) => e.key === "Enter" && fileRef.current?.click()}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          handleFiles(e.dataTransfer.files);
-        }}
-        className="mt-5 border-2 border-dashed rounded-sm px-6 py-8 text-center cursor-pointer transition-colors"
-        style={{
-          borderColor: dragOver ? "var(--color-seal)" : "var(--color-line-dark)",
-          background: dragOver ? "var(--color-paper-deep)" : "transparent",
-        }}
-      >
-        {upload.isPending ? (
-          <p className="digits text-sm text-tea animate-pulse">剪裁归档中 ……</p>
-        ) : (
-          <>
-            <p className="section-head text-lg">把文献递进收文口</p>
-            <p className="text-sm text-ink-soft mt-1">
-              拖到此处，或点击选择文件 · 单份不超过 20MB ·
-              <span className="digits"> txt / md / pdf / docx</span>
-            </p>
-          </>
-        )}
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".txt,.md,.pdf,.docx"
-          className="hidden"
-          onChange={(e) => handleFiles(e.target.files)}
-        />
-      </div>
-
-      {notice && (
-        <p className="mt-3 text-sm" role="status">
-          <span className="text-seal">▍</span>
-          {notice}
-        </p>
-      )}
-
-      {/* 工位说明（暗房借鉴：固定工位语法） */}
-      <ol className="mt-6 flex flex-wrap items-center gap-y-1 text-sm" aria-label="入库工位">
-        {STATIONS.map((s, i) => (
-          <li key={s} className="flex items-center">
-            {i > 0 && (
-              <span className="digits mx-3 text-line-dark select-none" aria-hidden>
-                ──────▶
-              </span>
-            )}
-            <span className="flex items-baseline gap-1.5">
-              <span className="digits text-[10px] text-tea">{`0${i + 1}`}</span>
-              <span className="section-head">{s}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-
-      {/* 文献总表 */}
-      <div className="mt-6 flex items-baseline justify-between">
-        <h3 className="section-head text-lg">文献总表</h3>
-        <button
-          className="btn-ghost digits text-xs px-3 py-1.5"
-          onClick={() => rebuild.mutate()}
-          disabled={rebuild.isPending || !docs.data?.length}
-        >
-          {rebuild.isPending ? "重建中……" : "重建索引"}
-        </button>
-      </div>
-      <hr className="cut-line mt-2" />
-
-      {docs.isLoading ? (
-        <p className="digits text-sm text-tea mt-6">调卷中 ……</p>
-      ) : !docs.data?.length ? (
-        <div className="mt-8 mb-4 text-center">
-          <p className="section-head text-lg text-ink-soft">资料室还没有文献</p>
-          <p className="text-sm text-ink-soft mt-1">
-            先递一份文献进收文口，再到「问答」桌前开始问询。
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-4xl px-6 py-8 md:px-10">
+        <header>
+          <h1 className="text-xl font-semibold tracking-tight">知识库</h1>
+          <p className="mt-1 text-sm text-soft">
+            上传 PDF / DOCX / MD / TXT 文档，自动完成解析、分块与向量化入库
           </p>
+        </header>
+
+        {/* 上传区 */}
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="上传文档"
+          onClick={() => fileRef.current?.click()}
+          onKeyDown={(e) => e.key === "Enter" && fileRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            handleFiles(e.dataTransfer.files);
+          }}
+          className="mt-6 cursor-pointer rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors"
+          style={{
+            borderColor: dragOver ? "var(--kb-ink)" : "var(--kb-line-strong)",
+            background: dragOver ? "var(--kb-surface)" : "transparent",
+          }}
+        >
+          {upload.isPending ? (
+            <p className="mono text-sm text-soft">入库处理中 …</p>
+          ) : (
+            <>
+              <span
+                className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-surface2 text-soft"
+                aria-hidden
+              >
+                <IconUpload size={18} />
+              </span>
+              <p className="mt-3 text-sm font-medium">拖拽文件到此处，或点击上传</p>
+              <p className="mono mt-1 text-xs text-faint">单份 ≤ 20MB · txt / md / pdf / docx</p>
+            </>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".txt,.md,.pdf,.docx"
+            className="hidden"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
         </div>
-      ) : (
-        <table className="w-full mt-2 text-sm">
-          <thead>
-            <tr className="text-left text-xs text-tea border-b border-line-dark">
-              <th className="py-2 pr-3 font-medium digits">编号</th>
-              <th className="py-2 pr-3 font-medium">文献</th>
-              <th className="py-2 pr-3 font-medium">格式</th>
-              <th className="py-2 pr-3 font-medium">状态</th>
-              <th className="py-2 pr-3 font-medium text-right">剪报条数</th>
-              <th className="py-2 pr-3 font-medium text-right">收文时间</th>
-              <th className="py-2 font-medium text-right">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {docs.data.map((d, i) => (
-              <DocRow key={d.id} doc={d} seq={i} onDelete={() => remove.mutate(d.id)} />
-            ))}
-          </tbody>
-        </table>
-      )}
-    </section>
+
+        {notice && (
+          <p
+            className="rise mt-3 flex items-center gap-2 text-sm"
+            style={{ color: notice.ok ? "var(--kb-ok)" : "var(--kb-danger)" }}
+            role="status"
+          >
+            <IconCheck size={14} />
+            {notice.text}
+          </p>
+        )}
+
+        {/* 处理流程 */}
+        <div className="mt-8 flex flex-wrap items-center gap-2" aria-label="入库流程">
+          {STATIONS.map((s, i) => (
+            <span key={s} className="flex items-center gap-2">
+              {i > 0 && <span className="h-px w-7 bg-line2" aria-hidden />}
+              <span className="chip text-soft">
+                <span className="mono text-[10px] text-faint">{`0${i + 1}`}</span>
+                {s}
+              </span>
+            </span>
+          ))}
+        </div>
+
+        {/* 文档列表 */}
+        <div className="mt-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">
+            文档列表
+            <span className="mono ml-2 text-xs font-normal text-faint">
+              {docs.data?.length ?? 0}
+            </span>
+          </h2>
+          <button
+            className="btn btn-ghost !h-8 text-xs"
+            onClick={() => rebuild.mutate()}
+            disabled={rebuild.isPending || !docs.data?.length}
+          >
+            <IconRefresh size={13} />
+            {rebuild.isPending ? "重建中…" : "重建索引"}
+          </button>
+        </div>
+
+        {docs.isLoading ? (
+          <p className="mono mt-6 text-sm text-faint">加载中 …</p>
+        ) : !docs.data?.length ? (
+          <div className="card mt-3 px-6 py-12 text-center">
+            <p className="text-sm font-medium text-soft">还没有文档</p>
+            <p className="mt-1 text-xs text-faint">
+              先上传一份文档，再到「问答」页开始提问；示例语料见 backend/data_seed/sample_docs
+            </p>
+          </div>
+        ) : (
+          <div className="card mt-3 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-surface text-left text-xs text-soft">
+                  <th className="px-4 py-2.5 font-medium">文件名</th>
+                  <th className="px-4 py-2.5 font-medium">格式</th>
+                  <th className="px-4 py-2.5 font-medium">状态</th>
+                  <th className="px-4 py-2.5 text-right font-medium">片段数</th>
+                  <th className="hidden px-4 py-2.5 text-right font-medium sm:table-cell">上传时间</th>
+                  <th className="px-4 py-2.5" />
+                </tr>
+              </thead>
+              <tbody>
+                {docs.data.map((d) => (
+                  <DocRow key={d.id} doc={d} onDelete={() => remove.mutate(d.id)} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
-function DocRow({ doc, seq, onDelete }: { doc: DocumentItem; seq: number; onDelete: () => void }) {
+function DocRow({ doc, onDelete }: { doc: DocumentItem; onDelete: () => void }) {
   const time = doc.created_at ? new Date(doc.created_at) : null;
   return (
-    <tr className="border-b border-line">
-      <td className="py-2 pr-3 digits text-xs text-tea">{`D-${String(seq + 1).padStart(4, "0")}`}</td>
-      <td className="py-2 pr-3 max-w-[24rem] truncate" title={doc.filename}>
+    <tr className="border-t border-line transition-colors hover:bg-surface">
+      <td className="max-w-[18rem] truncate px-4 py-2.5 font-medium" title={doc.filename}>
         {doc.filename}
       </td>
-      <td className="py-2 pr-3 digits text-xs uppercase">{doc.ext}</td>
-      <td className="py-2 pr-3">
+      <td className="px-4 py-2.5">
+        <span className="mono text-[11px] uppercase text-soft">{doc.ext}</span>
+      </td>
+      <td className="px-4 py-2.5">
         <span
-          className="inline-block text-xs px-1.5 py-0.5 rounded-sm border"
-          style={
-            doc.status === "ready"
-              ? { borderColor: "var(--color-tea)", color: "var(--color-tea)" }
-              : { borderColor: "var(--color-seal)", color: "var(--color-seal)" }
-          }
+          className="inline-flex items-center gap-1.5 text-xs"
+          style={{ color: doc.status === "ready" ? "var(--kb-ok)" : "var(--kb-warn)" }}
         >
-          {doc.status === "ready" ? "已归档" : "处理中"}
+          <span className="dot" />
+          {doc.status === "ready" ? "已入库" : "处理中"}
         </span>
       </td>
-      <td className="py-2 pr-3 text-right digits">{doc.chunk_count}</td>
-      <td className="py-2 pr-3 text-right digits text-xs text-ink-soft">
+      <td className="mono px-4 py-2.5 text-right">{doc.chunk_count}</td>
+      <td className="mono hidden px-4 py-2.5 text-right text-xs text-faint sm:table-cell">
         {time ? time.toLocaleString("zh-CN", { hour12: false }) : "—"}
       </td>
-      <td className="py-2 text-right">
+      <td className="px-4 py-2.5 text-right">
         <button
-          className="btn-ghost text-xs px-2 py-1 text-seal"
+          className="btn btn-ghost !h-7 !px-2 text-soft hover:!text-danger"
           onClick={onDelete}
           aria-label={`删除 ${doc.filename}`}
+          title="删除"
         >
-          退卷
+          <IconTrash size={14} />
         </button>
       </td>
     </tr>

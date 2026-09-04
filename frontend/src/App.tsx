@@ -1,6 +1,16 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api/client";
+import { ThemeProvider, useTheme } from "./theme";
+import {
+  IconChart,
+  IconChat,
+  IconClipboard,
+  IconDatabase,
+  IconMoon,
+  IconSliders,
+  IconSun,
+} from "./components/icons";
 import Knowledge from "./pages/Knowledge";
 import Chat from "./pages/Chat";
 import Eval from "./pages/Eval";
@@ -8,97 +18,134 @@ import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 
 const NAV = [
-  { to: "/knowledge", index: "01", label: "知识库", sub: "收文台" },
-  { to: "/chat", index: "02", label: "问答", sub: "阅读桌" },
-  { to: "/eval", index: "03", label: "评估", sub: "质检台" },
-  { to: "/dashboard", index: "04", label: "看板", sub: "值班日志" },
-  { to: "/settings", index: "05", label: "设置", sub: "值房" },
+  { to: "/knowledge", label: "知识库", sub: "文档入库与索引", icon: IconDatabase },
+  { to: "/chat", label: "问答", sub: "检索增强生成", icon: IconChat },
+  { to: "/eval", label: "评估", sub: "质量评定", icon: IconClipboard },
+  { to: "/dashboard", label: "看板", sub: "运行数据", icon: IconChart },
+  { to: "/settings", label: "设置", sub: "模型与微调", icon: IconSliders },
 ];
 
-const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+function ModeChip({ full = false }: { full?: boolean }) {
+  const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 30000 });
+  const mock = health.data?.mock ?? true;
+  return (
+    <span className="chip text-soft" title={mock ? "未配置 API Key，本地 Mock 模型运行中" : "DeepSeek 已连接"}>
+      <span className="dot" style={{ color: mock ? "var(--kb-warn)" : "var(--kb-ok)" }} />
+      {full ? (mock ? "Mock 模式运行中" : "DeepSeek 已连接") : mock ? "MOCK" : "DEEPSEEK"}
+    </span>
+  );
+}
 
-function todayStamp(): string {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}·${p(d.getMonth() + 1)}·${p(d.getDate())} 星期${WEEKDAYS[d.getDay()]}`;
+function ThemeToggle() {
+  const { theme, toggle } = useTheme();
+  return (
+    <button
+      className="btn btn-ghost w-9 !px-0"
+      onClick={toggle}
+      aria-label={theme === "light" ? "切换到深色" : "切换到浅色"}
+      title={theme === "light" ? "切换到深色" : "切换到浅色"}
+    >
+      {theme === "light" ? <IconMoon /> : <IconSun />}
+    </button>
+  );
+}
+
+function Brand() {
+  return (
+    <span className="flex items-center gap-2.5">
+      <span
+        className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-accentink"
+        aria-hidden
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 17V7l8 5 8-5v10" />
+        </svg>
+      </span>
+      <span className="text-[15px] font-semibold tracking-tight">智汇知识库</span>
+      <span className="mono hidden text-[10px] font-medium tracking-[0.14em] text-faint sm:inline">
+        RAG ASSISTANT
+      </span>
+    </span>
+  );
 }
 
 export default function App() {
-  const health = useQuery({ queryKey: ["health"], queryFn: api.health });
-
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* 报头：通栏印泥红 */}
-      <header className="bg-seal text-paper">
-        <div className="mx-auto max-w-6xl px-6 py-3 flex items-baseline gap-5 flex-wrap">
-          <h1 className="masthead-title text-2xl leading-none">智汇知识库</h1>
-          <span className="digits text-[11px] tracking-[0.22em] opacity-90">
-            ZHIHUI CLIPPING BUREAU · RAG DESK
-          </span>
-          <div className="ml-auto flex items-center gap-4">
-            <span className="digits text-xs opacity-95">{todayStamp()}</span>
-            <span
-              className="digits text-[11px] border border-paper/70 rounded-sm px-1.5 py-0.5 tracking-widest"
-              title={
-                health.data?.mock
-                  ? "未配置 API Key，当前以本地 Mock 模型运行"
-                  : `已接入 ${health.data ? "远程模型" : "……"}`
-              }
-            >
-              {health.isLoading ? "……" : health.data?.mock ? "MOCK 值机" : "DEEPSEEK 在线"}
-            </span>
+    <ThemeProvider>
+      <div className="flex h-full">
+        {/* 侧栏（桌面） */}
+        <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface md:flex">
+          <div className="px-4 pb-4 pt-5">
+            <Brand />
           </div>
+          <nav className="flex flex-col gap-0.5 px-3" aria-label="主导航">
+            {NAV.map(({ to, label, icon: Icon }) => (
+              <NavLink key={to} to={to} className="nav-link" data-active={undefined}>
+                {({ isActive }) => (
+                  <span className="nav-link w-full" data-active={isActive}>
+                    <Icon size={17} />
+                    {label}
+                  </span>
+                )}
+              </NavLink>
+            ))}
+          </nav>
+          <div className="mt-auto space-y-3 px-4 pb-5">
+            <ModeChip full />
+            <div className="flex items-center justify-between">
+              <p className="mono text-[10px] leading-relaxed text-faint">
+                FastAPI · ChromaDB
+                <br />
+                BGE + BM25 · RRF
+              </p>
+              <ThemeToggle />
+            </div>
+          </div>
+        </aside>
+
+        {/* 主区 */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* 顶栏（移动端） */}
+          <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 md:hidden">
+            <Brand />
+            <span className="flex items-center gap-2">
+              <ModeChip />
+              <ThemeToggle />
+            </span>
+          </header>
+          <nav
+            className="flex gap-1.5 overflow-x-auto border-b border-line px-4 py-2 md:hidden"
+            aria-label="主导航"
+          >
+            {NAV.map(({ to, label, icon: Icon }) => (
+              <NavLink key={to} to={to}>
+                {({ isActive }) => (
+                  <span
+                    className="nav-link !px-3"
+                    data-active={isActive}
+                    style={{ whiteSpace: "nowrap" }}
+                  >
+                    <Icon size={15} />
+                    {label}
+                  </span>
+                )}
+              </NavLink>
+            ))}
+          </nav>
+
+          <main className="min-h-0 flex-1 overflow-hidden">
+            <Routes>
+              <Route path="/" element={<Knowledge />} />
+              <Route path="/knowledge" element={<Knowledge />} />
+              <Route path="/chat" element={<Chat />} />
+              <Route path="/eval" element={<Eval />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<Knowledge />} />
+            </Routes>
+          </main>
         </div>
-      </header>
-
-      <div className="mx-auto max-w-6xl w-full px-6 flex-1 flex gap-8 py-6">
-        {/* 档案夹标签轨 */}
-        <nav className="w-40 shrink-0 flex flex-col gap-1 pt-2" aria-label="主导航">
-          {NAV.map((item) => (
-            <NavLink key={item.to} to={item.to}>
-              {({ isActive }) => (
-                <span
-                  className="folder-tab block px-3 py-2"
-                  data-active={isActive}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  <span className="digits block text-[10px] tracking-[0.25em] opacity-70">
-                    {item.index}
-                  </span>
-                  <span className="section-head block text-base leading-tight">
-                    {item.label}
-                  </span>
-                  <span className="block text-xs opacity-70">{item.sub}</span>
-                </span>
-              )}
-            </NavLink>
-          ))}
-          <p className="mt-auto text-[11px] leading-relaxed text-ink-soft pt-6">
-            每份文献经收文、剪裁、归档三道工位入库；
-            每条回答附来源戳，可在阅读桌下方的剪报条中核对。
-          </p>
-        </nav>
-
-        {/* 阅读桌 */}
-        <main className="flex-1 min-w-0">
-          <Routes>
-            <Route path="/" element={<Knowledge />} />
-            <Route path="/knowledge" element={<Knowledge />} />
-            <Route path="/chat" element={<Chat />} />
-            <Route path="/eval" element={<Eval />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Knowledge />} />
-          </Routes>
-        </main>
       </div>
-
-      <footer className="mx-auto max-w-6xl w-full px-6 pb-6">
-        <hr className="cut-line" />
-        <p className="digits text-[11px] text-ink-soft pt-3">
-          FASTAPI · CHROMADB · BGE + BM25 混合检索 · RRF 融合 · 资料室常年开馆
-        </p>
-      </footer>
-    </div>
+    </ThemeProvider>
   );
 }
