@@ -27,6 +27,32 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Token 与缓存 */}
+        {overview.data?.tokens && (
+          <>
+            <h2 className="mt-8 text-sm font-semibold">Token 与上下文缓存</h2>
+            <div className="card mt-3 grid grid-cols-2 divide-line md:grid-cols-4 md:divide-x">
+              <Stat
+                label="缓存命中率"
+                value={
+                  overview.data.tokens.cache_hit_rate != null
+                    ? `${(overview.data.tokens.cache_hit_rate * 100).toFixed(1)}%`
+                    : "—"
+                }
+                highlight={overview.data.tokens.cache_hit_rate != null}
+              />
+              <Stat label="命中 Tokens" value={overview.data.tokens.cache_hit.toLocaleString()} />
+              <Stat label="未命中 Tokens" value={overview.data.tokens.cache_miss.toLocaleString()} />
+              <Stat label="生成 Tokens" value={overview.data.tokens.completion.toLocaleString()} />
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-faint">
+              多轮对话时，相同的系统提示词与历史前缀会命中模型服务的上下文缓存（DeepSeek
+              前缀缓存），命中部分按缓存价计费，命中率越高成本越低。命中率偏低通常意味着
+              历史消息被截断或提示词频繁变化。
+            </p>
+          </>
+        )}
+
         {/* 趋势 */}
         <h2 className="mt-8 text-sm font-semibold">七日趋势</h2>
         <div className="card mt-3 p-4">
@@ -53,11 +79,16 @@ export default function Dashboard() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="px-5 py-4">
       <p className="text-xs text-soft">{label}</p>
-      <p className="mono mt-1 text-2xl font-semibold leading-tight">{value}</p>
+      <p className="mono mt-1 text-2xl font-semibold leading-tight">
+        {value}
+        {highlight && value !== "—" && (
+          <span className="dot ml-2 inline-block align-middle" style={{ color: "var(--kb-ok)" }} />
+        )}
+      </p>
     </div>
   );
 }

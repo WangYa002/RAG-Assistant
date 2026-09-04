@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, Citation, streamChat } from "../api/client";
+import { api, Citation, streamChat, UsageStat } from "../api/client";
 import { IconChat, IconCheck, IconChevron, IconPlus, IconSend, IconX } from "../components/icons";
 
 interface Turn {
@@ -10,6 +10,7 @@ interface Turn {
   id?: number;
   rating?: "up" | "down" | null;
   streaming?: boolean;
+  usage?: UsageStat;
 }
 
 export default function Chat() {
@@ -72,11 +73,11 @@ export default function Chat() {
           next[next.length - 1] = { ...last, content: last.content + text };
           return next;
         }),
-      onDone: ({ message_id, conversation_id }) => {
+      onDone: ({ message_id, conversation_id, usage }) => {
         setTurns((t) => {
           const next = [...t];
           const last = next[next.length - 1];
-          next[next.length - 1] = { ...last, streaming: false, id: message_id };
+          next[next.length - 1] = { ...last, streaming: false, id: message_id, usage };
           return next;
         });
         if (conversation_id !== convId) setConvId(conversation_id);
@@ -272,6 +273,16 @@ function AnswerBlock({
             </div>
           ))}
         </div>
+      )}
+
+      {!turn.streaming && turn.usage && (
+        <p className="mono mt-2 text-[11px] text-faint">
+          上下文 {turn.usage.prompt_tokens.toLocaleString()} tok · 生成{" "}
+          {turn.usage.completion_tokens.toLocaleString()} tok · 缓存命中{" "}
+          {turn.usage.cache_hit_rate != null
+            ? `${(turn.usage.cache_hit_rate * 100).toFixed(0)}%（${turn.usage.cache_hit_tokens.toLocaleString()} tok）`
+            : "—"}
+        </p>
       )}
 
       {!turn.streaming && turn.id && (

@@ -68,6 +68,14 @@ export interface EvalRunResult {
   created_at: string;
 }
 
+export interface UsageStat {
+  prompt_tokens: number;
+  completion_tokens: number;
+  cache_hit_tokens: number;
+  cache_miss_tokens: number;
+  cache_hit_rate: number | null;
+}
+
 export interface Overview {
   total_queries: number;
   avg_latency_ms: number;
@@ -75,12 +83,21 @@ export interface Overview {
   feedback: { up: number; down: number };
   doc_count: number;
   chunk_count: number;
+  tokens: {
+    prompt: number;
+    completion: number;
+    cache_hit: number;
+    cache_miss: number;
+    cache_hit_rate: number | null;
+  };
 }
 
 export interface TrendPoint {
   date: string;
   queries: number;
   avg_latency: number;
+  prompt_tokens: number;
+  cache_hit_rate: number | null;
 }
 
 export interface ModelSettings {
@@ -169,7 +186,7 @@ export const api = {
 export interface StreamHandlers {
   onCitations: (hits: Citation[]) => void;
   onDelta: (text: string) => void;
-  onDone: (result: { message_id: number; conversation_id: number }) => void;
+  onDone: (result: { message_id: number; conversation_id: number; usage?: UsageStat }) => void;
   onError: (message: string) => void;
 }
 
@@ -202,7 +219,11 @@ export async function streamChat(
       if (event === "citations") h.onCitations(data.hits ?? []);
       else if (event === "delta") h.onDelta(data.text ?? "");
       else if (event === "done")
-        h.onDone({ message_id: data.message_id, conversation_id: data.conversation_id });
+        h.onDone({
+          message_id: data.message_id,
+          conversation_id: data.conversation_id,
+          usage: data.usage,
+        });
       else if (event === "error") h.onError(data.message ?? "生成失败");
     } catch {
       /* 忽略不完整事件 */

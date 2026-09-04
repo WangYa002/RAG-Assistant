@@ -54,6 +54,10 @@ class QueryLog(Base):
     question = Column(Text)
     latency_ms = Column(Float)
     top_score = Column(Float)
+    prompt_tokens = Column(Integer, default=0)
+    completion_tokens = Column(Integer, default=0)
+    cache_hit_tokens = Column(Integer, default=0)
+    cache_miss_tokens = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 

@@ -6,7 +6,17 @@ def seed_logs(client):
     init_db(client.app.state.settings)
     db = next(get_session())
     for i in range(3):
-        db.add(QueryLog(question=f"q{i}", latency_ms=100.0 + i * 100, top_score=0.5))
+        db.add(
+            QueryLog(
+                question=f"q{i}",
+                latency_ms=100.0 + i * 100,
+                top_score=0.5,
+                prompt_tokens=100,
+                completion_tokens=20,
+                cache_hit_tokens=50,
+                cache_miss_tokens=50,
+            )
+        )
     conv = Conversation(title="t")
     db.add(conv)
     db.commit()
@@ -21,6 +31,12 @@ def test_analytics_overview(client):
     assert body["total_queries"] == 3
     assert body["avg_latency_ms"] == 200.0
     assert body["feedback"] == {"up": 1, "down": 1}
+    tokens = body["tokens"]
+    assert tokens["prompt"] == 300
+    assert tokens["completion"] == 60
+    assert tokens["cache_hit"] == 150
+    assert tokens["cache_miss"] == 150
+    assert abs(tokens["cache_hit_rate"] - 0.5) < 1e-6
 
 
 def test_analytics_trends(client):
@@ -28,6 +44,9 @@ def test_analytics_trends(client):
     trends = client.get("/api/analytics/trends").json()
     assert len(trends) == 7
     assert sum(t["queries"] for t in trends) == 3
+    today = trends[-1]
+    assert today["queries"] == 3
+    assert abs(today["cache_hit_rate"] - 0.5) < 1e-6
 
 
 def test_settings_model_roundtrip_and_mask(client):

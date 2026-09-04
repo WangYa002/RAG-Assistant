@@ -45,6 +45,28 @@ def test_chat_stream_full_chain(client):
     assert done["conversation_id"] and done["message_id"]
 
 
+def test_chat_stream_usage_and_cache_persisted(client):
+    """done 事件必须携带 token 用量与缓存命中，且写入 QueryLog。"""
+    seed_doc(client)
+    res = client.post("/api/chat/stream", json={"question": "FastAPI 是什么？"})
+    done = parse_sse(res.text)[-1][1]
+    usage = done["usage"]
+    assert usage["prompt_tokens"] > 0
+    assert usage["completion_tokens"] > 0
+    assert 0 <= usage["cache_hit_tokens"] <= usage["prompt_tokens"]
+    assert usage["prompt_tokens"] == usage["cache_hit_tokens"] + usage["cache_miss_tokens"]
+    assert usage["cache_hit_rate"] is None or 0 <= usage["cache_hit_rate"] <= 1
+
+    from app.core.db import get_session
+    from app.models.entities import QueryLog
+
+    db = next(get_session())
+    row = db.query(QueryLog).order_by(QueryLog.id.desc()).first()
+    assert row.prompt_tokens == usage["prompt_tokens"]
+    assert row.completion_tokens == usage["completion_tokens"]
+    assert row.cache_hit_tokens == usage["cache_hit_tokens"]
+
+
 def test_conversation_history_and_rating(client):
     seed_doc(client)
     res = client.post("/api/chat/stream", json={"question": "介绍一下 FastAPI"})

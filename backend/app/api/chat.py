@@ -62,14 +62,25 @@ def chat_stream(body: ChatBody, request: Request):
                 messages.insert(1, {"role": m.role, "content": m.content[:500]})
 
         parts: list[str] = []
+        usage: dict = {}
         try:
-            for delta in app.state.llm.chat(messages, stream=True):
+            for delta in app.state.llm.chat(messages, stream=True, usage_out=usage):
                 parts.append(delta)
                 yield sse("delta", {"text": delta})
         except Exception as exc:
             yield sse("error", {"code": "llm_error", "message": str(exc)})
             return
         answer = "".join(parts)
+
+        hit = int(usage.get("cache_hit_tokens", 0))
+        miss = int(usage.get("cache_miss_tokens", 0))
+        usage_out = {
+            "prompt_tokens": int(usage.get("prompt_tokens", 0)),
+            "completion_tokens": int(usage.get("completion_tokens", 0)),
+            "cache_hit_tokens": hit,
+            "cache_miss_tokens": miss,
+            "cache_hit_rate": round(hit / (hit + miss), 4) if hit + miss > 0 else None,
+        }
 
         conv = (
             db.get(Conversation, body.conversation_id)
@@ -93,10 +104,21 @@ def chat_stream(body: ChatBody, request: Request):
                 question=question,
                 latency_ms=(time.time() - t0) * 1000,
                 top_score=citations[0]["score"] if citations else 0.0,
+                prompt_tokens=usage_out["prompt_tokens"],
+                completion_tokens=usage_out["completion_tokens"],
+                cache_hit_tokens=hit,
+                cache_miss_tokens=miss,
             )
         )
         db.commit()
-        yield sse("done", {"message_id": assistant.id, "conversation_id": conv.id})
+        yield sse(
+            "done",
+            {
+                "message_id": assistant.id,
+                "conversation_id": conv.id,
+                "usage": usage_out,
+            },
+        )
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
